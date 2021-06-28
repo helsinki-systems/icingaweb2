@@ -5,7 +5,6 @@ namespace Icinga\Web;
 
 use Icinga\Application\Logger;
 use Icinga\Authentication\Auth;
-use Icinga\Common\Database;
 use Icinga\Web\Navigation\DashboardHome;
 use Icinga\Web\Navigation\Navigation;
 use ipl\Sql\Select;
@@ -15,8 +14,6 @@ use ipl\Sql\Select;
  */
 class Menu extends Navigation
 {
-    use Database;
-
     /**
      * Create the main menu
      */
@@ -166,9 +163,9 @@ class Menu extends Navigation
         $dashboardItem = $this->getItem('dashboard');
         $homesFromDb = [];
 
-        $dashboardHomes = $this->getDb()->select((new Select())
+        $dashboardHomes = DashboardHome::getConn()->select((new Select())
             ->columns('*')
-            ->from('dashboard_home as dh')
+            ->from(DashboardHome::TABLE . ' dh')
             ->where([
                 'dh.owner = ?' => $user->getUsername(),
                 sprintf("dh.owner = '%s'", DashboardHome::DEFAULT_IW2_USER)
@@ -176,6 +173,11 @@ class Menu extends Navigation
 
         $priority = 10;
         foreach ($dashboardHomes as $dashboardHome) {
+            if (array_key_exists($dashboardHome->name, $homesFromDb)
+                && $dashboardHome->owner === DashboardHome::DEFAULT_IW2_USER) {
+                continue;
+            }
+
             $home = new DashboardHome($dashboardHome->name, [
                 'label'         => t($dashboardHome->label),
                 'priority'      => $priority,
@@ -193,9 +195,9 @@ class Menu extends Navigation
 
         $navigation = new Navigation();
         $homes = $navigation->load('dashboard-home');
-        $highestId = $this->getDb()->select((new Select())
+        $highestId = DashboardHome::getConn()->select((new Select())
             ->columns('MAX(id) AS highestId')
-            ->from('dashboard_home'))->fetch();
+            ->from(DashboardHome::TABLE))->fetch();
 
         /** @var DashboardHome $home */
         foreach ($homes as $home) {
@@ -207,10 +209,10 @@ class Menu extends Navigation
             if (array_key_exists($home->getName(), $homesFromDb)) {
                 $homeItem = $homesFromDb[$home->getName()];
 
-                $dashboard = $this->getDb()->select((new Select())
+                $dashboard = DashboardHome::getConn()->select((new Select())
                     ->columns('d.id')
                     ->from('dashboard d')
-                    ->joinLeft('dashboard_home dh', 'dh.id = d.home_id')
+                    ->join(DashboardHome::TABLE . ' dh', 'dh.id = d.home_id')
                     ->where(['home_id = ?' => $homeItem->getIdentifier()])
                     ->where([
                         'd.owner = ?'   => $user->getUsername(),
@@ -223,7 +225,7 @@ class Menu extends Navigation
 
                     continue;
                 } else {
-                    $dashboard = $this->getDb()->select((new Select())
+                    $dashboard = DashboardHome::getConn()->select((new Select())
                         ->columns('dashboard_id')
                         ->from('dashboard_override')
                         ->where(['home_id = ?' => $homeItem->getIdentifier()])
@@ -235,9 +237,9 @@ class Menu extends Navigation
                         continue;
                     }
 
-                    // This home has been edited by the user, e.g by deactivating the entire
-                    // home, but now it has been reactivated and can be removed from the DB
-                    $this->getDb()->delete('dashboard_home', [
+                    // This home has been edited by the user, e.g by disabling the entire
+                    // home, but now it has been re-enabled and can be removed from the DB
+                    DashboardHome::getConn()->delete(DashboardHome::TABLE, [
                         'id = ?'    => $homeItem->getIdentifier(),
                         'owner = ?' => $homeItem->getOwner()
                     ]);

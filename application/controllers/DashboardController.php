@@ -335,8 +335,8 @@ class DashboardController extends ActionController
     public function settingsAction()
     {
         $this->createTabs();
-        $controlForm = new Dashboard\SettingSortBox($this->dashboard);
-        $controlForm->on(Dashboard\SettingSortBox::ON_SUCCESS, function () use ($controlForm) {
+        $controlForm = new Dashboard\HomeViewSwitcher($this->dashboard);
+        $controlForm->on(Dashboard\HomeViewSwitcher::ON_SUCCESS, function () use ($controlForm) {
             $this->redirectNow(Url::fromPath('dashboard/settings')->addParams([
                 'home' => $controlForm->getPopulatedValue('sort_dashboard_home')
             ]));

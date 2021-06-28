@@ -5,6 +5,7 @@ namespace Icinga\Web\Widget\Dashboard;
 use Icinga\Web\Widget\Dashboard;
 use ipl\Html\BaseHtmlElement;
 use ipl\Html\HtmlElement;
+use ipl\Html\Text;
 use ipl\Web\Url;
 use ipl\Web\Widget\Icon;
 use ipl\Web\Widget\Link;
@@ -28,19 +29,19 @@ class Settings extends BaseHtmlElement
 
     public function tableHeader()
     {
-        $thead = new HtmlElement('thead', null, new HtmlElement(
+        $thead = new HtmlElement('thead', null, HtmlElement::create(
             'tr',
             null,
             [
-                new HtmlElement(
+                HtmlElement::create(
                     'th',
                     ['style' => 'width: 18em;'],
-                    new HtmlElement('strong', null, t('Dashlet Name'))
+                    new HtmlElement('strong', null, Text::create(t('Dashlet Name')))
                 ),
                 new HtmlElement(
                     'th',
                     null,
-                    new HtmlElement('strong', null, t('Url'))
+                    new HtmlElement('strong', null, Text::create(t('Url')))
                 ),
             ]
         ));
@@ -57,7 +58,7 @@ class Settings extends BaseHtmlElement
             $tableRow = new HtmlElement(
                 'tr',
                 null,
-                new HtmlElement('th', [
+                HtmlElement::create('th', [
                     'colspan'   => '2',
                     'style'     => 'text-align: left; padding: 0.5em; background-color: #0095bf;'
                 ], new Link(
@@ -70,7 +71,7 @@ class Settings extends BaseHtmlElement
             );
 
             if ($home->getDisabled()) {
-                $tableRow->add(new HtmlElement('td', [
+                $tableRow->add(HtmlElement::create('td', [
                     'style' => 'text-align: center; width: 15px;'
                 ], new Icon('ban', ['style' => 'color: red; font-size: 1.5em;'])));
 
@@ -84,12 +85,12 @@ class Settings extends BaseHtmlElement
             $tbody->add(new HtmlElement(
                 'tr',
                 null,
-                new HtmlElement('td', ['colspan' => '3'], t('Currently there is no dashboard available.'))
+                HtmlElement::create('td', ['colspan' => '3'], t('Currently there is no dashboard available.'))
             ));
         } else {
             foreach ($home->getPanes() as $pane) {
                 $tableRow = new HtmlElement('tr', null);
-                $th = new HtmlElement('th', [
+                $th = HtmlElement::create('th', [
                     'colspan'   => '2',
                     'style'     => 'text-align: left; padding: 0.5em;'
                 ]);
@@ -107,7 +108,7 @@ class Settings extends BaseHtmlElement
 
                 $tableRow->add($th);
                 if ($pane->getDisabled()) {
-                    $tableRow->add(new HtmlElement('td', ['style' => 'text-align: right; width: 1%;'], new Icon(
+                    $tableRow->add(HtmlElement::create('td', ['style' => 'text-align: right; width: 1%;'], new Icon(
                         'ban',
                         ['style' => 'font-size: 1.5em; color: red; position: relative;']
                     )));
@@ -120,7 +121,7 @@ class Settings extends BaseHtmlElement
                     $tableRow->add(new HtmlElement(
                         'tr',
                         null,
-                        new HtmlElement('td', ['colspan' => '3'], t('No dashlets added to dashboard'))
+                        HtmlElement::create('td', ['colspan' => '3'], t('No dashlets added to dashboard'))
                     ));
                 } else {
                     /** @var \Icinga\Web\Dashboard\Dashlet $dashlet */
@@ -141,7 +142,7 @@ class Settings extends BaseHtmlElement
                                 ]
                             )
                         ));
-                        $tr->add(new HtmlElement('td', [
+                        $tr->add(HtmlElement::create('td', [
                             'style' => ('
                                 table-layout: fixed; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
                             ')
@@ -152,7 +153,7 @@ class Settings extends BaseHtmlElement
                         )));
 
                         if ($dashlet->getDisabled()) {
-                            $tr->add(new HtmlElement('td', [
+                            $tr->add(HtmlElement::create('td', [
                                 'style' => 'text-align: right;'
                             ], new Icon('ban', ['style' => 'font-size: 1.5em; color: red; position: relative;'])));
                         }
@@ -170,7 +171,7 @@ class Settings extends BaseHtmlElement
 
     protected function assemble()
     {
-        $this->add(new HtmlElement('h1', null, t('Dashboard Settings')));
+        $this->add(new HtmlElement('h1', null, Text::create(t('Dashboard Settings'))));
 
         $this->add($this->tableHeader());
         $this->add($this->tableBody());

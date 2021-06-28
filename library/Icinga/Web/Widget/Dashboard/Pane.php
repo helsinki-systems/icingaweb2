@@ -20,7 +20,12 @@ class Pane implements UserWidget
     const SYSTEM = 'system';
 
     /** @var string A type for user created panes */
-    const PRIVATE = 'private';
+    const CUSTOM = 'private';
+
+    /** @var string Database table name */
+    const TABLE = 'dashboard';
+
+    const OVERRIDING_TABLE = 'dashboard_override';
 
     /**
      * Flag if widget is created by an user
@@ -93,6 +98,13 @@ class Pane implements UserWidget
     private $type = 'system';
 
     /**
+     * The priority order of this pane
+     *
+     * @var int
+     */
+    private $order;
+
+    /**
      * Create a new pane
      *
      * @param string $name         The pane to create
@@ -145,6 +157,30 @@ class Pane implements UserWidget
     public function getPaneId()
     {
         return $this->paneId;
+    }
+
+    /**
+     * Get the priority order of this pane
+     *
+     * @return int
+     */
+    public function getOrder()
+    {
+        return $this->order;
+    }
+
+    /**
+     * Set the priority order of this pane
+     *
+     * @param $order
+     *
+     * @return $this
+     */
+    public function setOrder($order)
+    {
+        $this->order = $order;
+
+        return $this;
     }
 
     /**
@@ -354,7 +390,7 @@ class Pane implements UserWidget
      *
      * @return array
      */
-    public function getDashlets($skipDisabled = false, $ordered = true)
+    public function getDashlets($skipDisabled = false)
     {
         $dashlets = $this->dashlets;
 
@@ -364,9 +400,9 @@ class Pane implements UserWidget
             });
         }
 
-        if ($ordered) {
-            ksort($dashlets);
-        }
+        uasort($dashlets, function (Dashlet $x, $y) {
+            return $y->getOrder() - $x->getOrder();
+        });
 
         return $dashlets;
     }

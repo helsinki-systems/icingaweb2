@@ -7,7 +7,7 @@ use Icinga\Web\Widget\Dashboard;
 use ipl\Web\Compat\CompatForm;
 use ipl\Web\Url;
 
-class SettingSortBox extends CompatForm
+class HomeViewSwitcher extends CompatForm
 {
     /** @var Dashboard */
     private $dashboard;

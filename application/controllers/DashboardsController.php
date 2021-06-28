@@ -316,9 +316,9 @@ class DashboardsController extends CompatController
     {
         $this->createTabs();
 
-        $controlForm = new Dashboard\SettingSortBox($this->dashboard);
+        $controlForm = new Dashboard\HomeViewSwitcher($this->dashboard);
 
-        $controlForm->on(Dashboard\SettingSortBox::ON_SUCCESS, function () use ($controlForm) {
+        $controlForm->on(Dashboard\HomeViewSwitcher::ON_SUCCESS, function () use ($controlForm) {
             $home = $controlForm->getPopulatedValue('sort_dashboard_home');
             if (! $home) {
                 $home = $controlForm->activeHome;

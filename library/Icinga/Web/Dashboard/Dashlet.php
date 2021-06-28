@@ -17,6 +17,12 @@ use ipl\Web\Widget\Link;
  */
 class Dashlet extends BaseHtmlElement implements UserWidget
 {
+    /** @var string Database table name */
+    const TABLE = 'dashlet';
+
+    /** @var string Database overriding table name */
+    const OVERRIDING_TABLE = 'dashlet_override';
+
     protected $tag = 'div';
 
     protected $defaultAttributes = ['class' => 'container'];
@@ -81,6 +87,13 @@ class Dashlet extends BaseHtmlElement implements UserWidget
      * @var string
      */
     private $dashletId;
+
+    /**
+     * The priority order of this dashlet
+     *
+     * @var int
+     */
+    private $order;
 
     /**
      * Create a new dashlet displaying the given url in the provided pane
@@ -156,11 +169,37 @@ class Dashlet extends BaseHtmlElement implements UserWidget
     }
 
     /**
+     * Set the title of this dashlet
+     *
      * @param string $title
      */
     public function setTitle($title)
     {
         $this->title = $title;
+    }
+
+    /**
+     * Get the priority order of this dashlet
+     *
+     * @return int
+     */
+    public function getOrder()
+    {
+        return $this->order;
+    }
+
+    /**
+     * Set the priority order of this dashlet
+     *
+     * @param $order
+     *
+     * @return $this
+     */
+    public function setOrder($order)
+    {
+        $this->order = $order;
+
+        return $this;
     }
 
     /**
@@ -265,8 +304,8 @@ class Dashlet extends BaseHtmlElement implements UserWidget
     protected function assemble()
     {
         if (! $this->url) {
-            $this->add(new HtmlElement('h1', null, $this->getTitle()));
-            $this->add(new HtmlElement(
+            $this->add(HtmlElement::create('h1', null, $this->getTitle()));
+            $this->add(HtmlElement::create(
                 'p',
                 ['class' => 'error-message'],
                 sprintf(t('Cannot create dashboard dashlet "%s" without valid URL'), $this->getTitle())
@@ -286,14 +325,14 @@ class Dashlet extends BaseHtmlElement implements UserWidget
                 ]
             )));
 
-            $this->add(new HtmlElement(
+            $this->add(HtmlElement::create(
                 'p',
                 ['class'    => 'progress-label'],
                 [
                     $this->getProgressLabe(),
-                    new HtmlElement('span', null, '.'),
-                    new HtmlElement('span', null, '.'),
-                    new HtmlElement('span', null, '.'),
+                    HtmlElement::create('span', null, '.'),
+                    HtmlElement::create('span', null, '.'),
+                    HtmlElement::create('span', null, '.'),
                 ]
             ));
         }

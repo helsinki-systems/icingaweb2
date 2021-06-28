@@ -7,11 +7,19 @@ use Icinga\Web\Navigation\NavigationItem;
 use Icinga\Web\Notification;
 use Icinga\Web\Widget\Dashboard;
 use ipl\Html\HtmlElement;
+use ipl\Html\Text;
 use ipl\Web\Compat\CompatForm;
 use ipl\Web\Url;
 
 class HomeAndPaneForm extends CompatForm
 {
+    /**
+     * Upon mysql duplicate key error raised error code
+     *
+     * @var int
+     */
+    const PDO_DUPLICATE_KEY_ERR = 1062;
+
     /** @var Dashboard */
     private $dashboard;
 
@@ -52,7 +60,6 @@ class HomeAndPaneForm extends CompatForm
         $dbTarget = '_main';
         $btnUpdateLabel = t('Update Home');
         $btnRemoveLabel = t('Remove Home');
-        $nameDesc = t('Edit the current home name');
         $titleDesc = t('Edit the current home title.');
         $formaction = (string) Url::fromRequest()->setPath($removeHome);
 
@@ -77,7 +84,6 @@ class HomeAndPaneForm extends CompatForm
                 $dbTarget = '_self';
                 $btnUpdateLabel = t('Update Pane');
                 $btnRemoveLabel = t('Remove Pane');
-                $nameDesc = t('Edit the current pane name');
                 $titleDesc = t('Edit the current pane title.');
                 $formaction = (string) Url::fromRequest()->setPath($removePane);
 
@@ -137,16 +143,6 @@ class HomeAndPaneForm extends CompatForm
 
             $this->addElement(
                 'text',
-                'name',
-                [
-                    'required'      => true,
-                    'label'         => t('Name'),
-                    'description'   => $nameDesc
-                ]
-            );
-
-            $this->addElement(
-                'text',
                 'title',
                 [
                     'required'      => true,
@@ -165,18 +161,18 @@ class HomeAndPaneForm extends CompatForm
                 $message = sprintf(t('Please confirm removal of dashboard "%s"'), Url::fromRequest()->getParam('pane'));
             }
 
-            $this->add(new HtmlElement('h1', null, $message));
+            $this->add(new HtmlElement('h1', null, Text::create($message)));
         }
 
         $this->add(
-            new HtmlElement(
+            HtmlElement::create(
                 'div',
                 [
                     'class' => 'control-group form-controls',
                     'style' => 'position: relative; margin-right: 1em; margin-top: 2em;'
                 ],
                 [
-                    new HtmlElement(
+                    HtmlElement::create(
                         'input',
                         [
                             'class'             => 'btn-primary',
@@ -188,7 +184,7 @@ class HomeAndPaneForm extends CompatForm
                         ]
                     ),
                     $removeHome === $requestPath || $removePane === $requestPath ? '' :
-                    new HtmlElement(
+                    HtmlElement::create(
                         'input',
                         [
                             'class' => 'btn-primary',
@@ -236,6 +232,8 @@ class HomeAndPaneForm extends CompatForm
                     $createNewHome = false;
 
                     if ($home->getName() !== $orgHome->getName()) {
+                        // It' essential, so we can check with something like this
+                        // „$this->dashboard->getActiveHome()->getOwner()” later on downstairs.
                         $this->dashboard->loadDashboards($home->getName());
                     }
                 }
@@ -247,7 +245,7 @@ class HomeAndPaneForm extends CompatForm
                 if ($this->getPopulatedValue('enable_pane') === 'y') {
                     $paneUpdated = true;
 
-                    $db->update('dashboard_override', ['disabled' => (int) false], [
+                    $db->update(Dashboard\Pane::OVERRIDING_TABLE, ['disabled' => (int) false], [
                         'owner = ?'         => $pane->getOwner(),
                         'dashboard_id = ?'  => $pane->getPaneId(),
                     ]);
@@ -255,7 +253,7 @@ class HomeAndPaneForm extends CompatForm
 
                 if (! $paneUpdated) {
                     if ($pane->isOverridingPane()) { // Custom panes that overwrites system panes
-                        $db->update('dashboard_override', [
+                        $db->update(Dashboard\Pane::OVERRIDING_TABLE, [
                             'home_id'   => $homeId,
                             'label'     => $this->getValue('title'),
                         ], [
@@ -266,7 +264,7 @@ class HomeAndPaneForm extends CompatForm
                     } elseif (! $pane->isUserWidget()) { // System panes
                         $paneId = DashboardHome::getSHA1($username . $newHome . $pane->getName());
 
-                        $db->insert('dashboard_override', [
+                        $db->insert(Dashboard\Pane::OVERRIDING_TABLE, [
                             'dashboard_id'  => $paneId,
                             'home_id'       => $homeId,
                             'owner'         => $username,
@@ -282,7 +280,7 @@ class HomeAndPaneForm extends CompatForm
                                 $label = $activeHome->getLabel();
                             }
 
-                            $db->insert('dashboard_home', [
+                            $db->insert(DashboardHome::TABLE, [
                                 'name'  => $newHome,
                                 'label' => $label,
                                 'owner' => $username
@@ -293,7 +291,6 @@ class HomeAndPaneForm extends CompatForm
 
                         $db->update('dashboard', [
                             'home_id'   => $homeId,
-                            'name'      => $this->getValue('name'),
                             'label'     => $this->getPopulatedValue('title'),
                         ], ['id = ?' => $pane->getPaneId()]);
                     }
@@ -318,72 +315,78 @@ class HomeAndPaneForm extends CompatForm
                 }
 
                 Notification::success($message);
-            } else {
-                // Remove the given pane and it's dashlets
+            } else { // Remove a pane & it's child refs
                 $pane->removeDashlets();
                 $orgHome->removePane($pane->getName());
 
                 Notification::success(t('Dashboard has been removed') . ': ' . $pane->getTitle());
             }
-        } else {
+        } else { // Dashboard homes
             if ($this->getPopulatedValue('btn_update')) {
                 if ($orgHome->getOwner() === DashboardHome::DEFAULT_IW2_USER && ! $orgHome->getDisabled()) {
-                    Notification::error(sprintf(t('It is not allowed to edit system home: "%s"'), $orgHome->getName()));
+                    Notification::error(sprintf(t('It is not allowed to edit system home: "%s"'), $orgHome->getLabel()));
 
                     return;
                 }
 
-                $newHome = $this->getValue('name');
                 $label = $this->getValue('title');
-
-                if ($orgHome->getName() !== $newHome && $this->dashboard->hasHome($newHome)) {
-                    Notification::warning(sprintf(t('Dashboard home "%s" already exists'), $newHome));
+                if ($label !== $orgHome->getLabel()
+                    && in_array($label, $this->dashboard->getHomeKeyNameArray(false))) {
+                    Notification::warning(sprintf(t('Dashboard home "%s" already exists.'), $label));
 
                     return;
                 }
 
-                $homeUpdated = false;
+                $homeEnabled = false;
                 if ($this->getPopulatedValue('enable_home') === 'y') {
-                    $homeUpdated = true;
+                    $homeEnabled = true;
 
-                    $db->update('dashboard_home', ['disabled' => 0], [
-                        'id = ?'    => $orgHome->getIdentifier(),
-                        'owner = ?' => $orgHome->getOwner()
-                    ]);
+                    try {
+                        $db->update(DashboardHome::TABLE, [
+                            'owner'     => DashboardHome::DEFAULT_IW2_USER,
+                            'disabled'  => 0
+                        ], ['id = ?' => $orgHome->getIdentifier()]);
+                    } catch (\PDOException $err) {
+                        if ($err->errorInfo[1] === self::PDO_DUPLICATE_KEY_ERR) { // Duplicate entry
+                            DashboardHome::getConn()->delete(DashboardHome::TABLE, [
+                                'id = ?'    => $orgHome->getIdentifier(),
+                                'owner = ?' => $orgHome->getOwner()
+                            ]);
+                        }
+                    }
                 }
 
-                if (! $homeUpdated) {
-                    $db->update('dashboard_home', ['name' => $newHome, 'label' => $label], [
-                        'id = ?' => $orgHome->getIdentifier(),
+                if (! $homeEnabled) {
+                    $db->update(DashboardHome::TABLE, ['label' => $label], [
+                        'id = ?'    => $orgHome->getIdentifier(),
                         'owner = ?' => $username
                     ]);
                 }
 
                 $notificationMsg = sprintf(
                     t('Dashboard home "%s" successfully renamed to "%s".'),
-                    $orgHome->getName(),
-                    $newHome
+                    $orgHome->getLabel(),
+                    $label
                 );
 
-                if ($homeUpdated) {
+                if ($homeEnabled) {
                     $notificationMsg = sprintf(
                         t('Dashboard home "%s" has been successfully enabled.'),
-                        $orgHome->getName()
+                        $orgHome->getLabel()
                     );
                 }
 
                 Notification::success($notificationMsg);
             } else {
-                // Remove the given home with it's panes and dashlets
                 $this->dashboard->removeHome($orgHome->getName());
 
+                $msg = sprintf(t('System dashboard home has been disabled: "%s"'), $orgHome->getLabel());
+
                 if ($orgHome->getOwner() !== DashboardHome::DEFAULT_IW2_USER) {
-                    Notification::success(sprintf(t('Dashboard home has been removed: "%s"'), $orgHome));
-                } else {
-                    Notification::success(
-                        sprintf(t('System dashboard home has been disabled: "%s"'), $orgHome->getName())
-                    );
+                    $msg = sprintf(t('Dashboard home has been removed: "%s"'), $orgHome->getLabel());
                 }
+
+                Notification::success($msg);
             }
         }
     }
@@ -402,7 +405,6 @@ class HomeAndPaneForm extends CompatForm
         }
 
         $this->populate([
-            'name'      => $paneOrHome->getName(),
             'org_name'  => $paneOrHome->getName(),
             'title'     => $title,
             'org_title' => $title
