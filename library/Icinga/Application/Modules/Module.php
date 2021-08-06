@@ -1348,7 +1348,7 @@ class Module
      *
      * @return array
      */
-    public function getDashletHomes()
+    public function getDashlets()
     {
         $this->launchConfigScript();
         return $this->dashletItems;

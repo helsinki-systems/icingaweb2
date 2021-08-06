@@ -6,10 +6,15 @@ use Icinga\Common\Database;
 use Icinga\Exception\ProgrammingError;
 use Icinga\User;
 use Icinga\Web\Dashboard\Dashlet;
-use Icinga\Web\Widget\Dashboard\Pane;
+use Icinga\Web\Dashboard\Pane;
 use ipl\Sql\Select;
 use ipl\Web\Url;
 
+/**
+ * DashboardHome loads all the panes belonging to the actually selected Home,
+ *
+ * along with their dashlets.
+ */
 class DashboardHome extends NavigationItem
 {
     use Database;
@@ -22,7 +27,7 @@ class DashboardHome extends NavigationItem
     const DEFAULT_HOME = 'Default Home';
 
     /**
-     * Default user of the "Default Home"
+     * A default user of some system homes
      *
      * @var string
      */
@@ -50,32 +55,37 @@ class DashboardHome extends NavigationItem
     const TABLE = 'dashboard_home';
 
     /**
-     * This home's dashboard panes
+     * An array of @see Pane belongs to this home
      *
      * @var Pane[]
      */
-    protected $panes = [];
+    private $panes = [];
 
     /**
      * A flag whether this home is disabled
      *
      * @var bool
      */
-    protected $disabled;
+    private $disabled;
 
     /**
-     * This home's owner
+     * A user this home belongs to
      *
      * @var string
      */
-    protected $owner = self::DEFAULT_IW2_USER;
+    private $owner = self::DEFAULT_IW2_USER;
 
     /**
      * This home's unique identifier
      *
      * @var integer
      */
-    protected $identifier;
+    private $identifier;
+
+    /**
+     * @var User
+     */
+    private $user;
 
     /**
      * Whether this home is active
@@ -83,11 +93,6 @@ class DashboardHome extends NavigationItem
      * @var bool
      */
     protected $active;
-
-    /**
-     * @var User
-     */
-    protected $user;
 
     /**
      * Get Database connection
@@ -216,8 +221,8 @@ class DashboardHome extends NavigationItem
             $this->setUrl(Url::fromPath(self::URL_PATH, [self::TAB_PARAM => $this->getName()]));
         }
 
-        // Set default url to false when this home has been disabled so it
-        // doesn't show up as a drop down menu under the navigation bar
+        // Set default url to false when this home has been disabled, so it
+        // doesn't show up as a drop-down menu under the navigation bar
         if ($this->getDisabled()) {
             $this->loadWithDefaultUrl(false);
         }
@@ -261,12 +266,13 @@ class DashboardHome extends NavigationItem
             $this->modifyPaneProperties($pane);
 
             if ($currentPane) {
+                $currentPane->setOwner($pane->getOwner());
+                $currentPane->setUserWidget($pane->isUserWidget());
+                $currentPane->setOverride($pane->isOverridingWidget());
+
                 $currentPane
                     ->setTitle($pane->getTitle())
-                    ->setOwner($pane->getOwner())
                     ->setPaneId($pane->getPaneId())
-                    ->setUserWidget($pane->isUserWidget())
-                    ->setOverride($pane->isOverridingPane())
                     ->addDashlets($pane->getDashlets());
 
                 continue;
@@ -306,6 +312,7 @@ class DashboardHome extends NavigationItem
             $paneId = self::getSHA1(self::DEFAULT_IW2_USER . self::DEFAULT_HOME . $dashboardPane->getName());
             $pane = new Pane($dashboardPane->getName());
             $pane
+                ->setHome($this)
                 ->setPaneId($paneId)
                 ->setTitle($dashboardPane->getLabel());
 
@@ -367,11 +374,12 @@ class DashboardHome extends NavigationItem
         $panes = [];
         foreach ($dashboards as $dashboard) {
             $pane = new Pane($dashboard->name);
+            $pane->setUserWidget();
+            $pane->setOwner($dashboard->owner);
             $pane
-                ->setUserWidget()
+                ->setHome($this)
                 ->setPaneId($dashboard->id)
                 ->setTitle($dashboard->label)
-                ->setOwner($dashboard->owner)
                 ->setType($dashboard->source)
                 ->setOrder($dashboard->priority);
 
@@ -390,8 +398,8 @@ class DashboardHome extends NavigationItem
             $paneDashlets = [];
             foreach ($dashlets as $dashletData) {
                 $dashlet = new Dashlet($dashletData->label, $dashletData->url, $pane);
+                $dashlet->setUserWidget();
                 $dashlet
-                    ->setUserWidget()
                     ->setOrder($dashletData->priority)
                     ->setName($dashletData->name)
                     ->setDashletId($dashletData->id);
@@ -421,9 +429,10 @@ class DashboardHome extends NavigationItem
             /** @var DashboardPane $pane */
             foreach ($panes as $pane) {
                 $newPane = new Pane($pane->getName());
+                $newPane->setOwner(self::DEFAULT_IW2_USER);
                 $newPane
+                    ->setHome($this)
                     ->setTitle($pane->getLabel())
-                    ->setOwner(self::DEFAULT_IW2_USER)
                     ->setPaneId(self::getSHA1($this->getOwner() . $this->getName() . $pane->getName()));
 
                 /** Cast array dashelts to NavigationItem */
@@ -489,7 +498,7 @@ class DashboardHome extends NavigationItem
             });
         }
 
-        uasort($panes, function ($x, $y) {
+        uasort($panes, function (Pane $x, Pane $y) {
             return $y->getOrder() - $x->getOrder();
         });
 
@@ -517,7 +526,7 @@ class DashboardHome extends NavigationItem
     }
 
     /**
-     * Modify the given pane's properties if it is a cloned or system home
+     * Modify the given pane's properties if it is a cloned or system pane
      *
      * @param Pane $pane
      */
@@ -543,10 +552,11 @@ class DashboardHome extends NavigationItem
                         'dashboard_id = ?'  => $paneId
                     ]);
                 } else {
+                    $pane->setUserWidget();
+                    $pane->setOverride(true);
+                    $pane->setOwner($overridingPane->owner);
+
                     $pane
-                        ->setUserWidget()
-                        ->setOverride(true)
-                        ->setOwner($overridingPane->owner)
                         ->setPaneId($paneId)
                         ->setDisabled($overridingPane->disabled);
 
@@ -566,12 +576,19 @@ class DashboardHome extends NavigationItem
                     $this->user->getUsername() . $this->getName() . $pane->getName() . $dashlet->getName()
                 );
 
-                $overridingDashlet = $this->getDb()->select((new Select())
+                $paneId = $pane->getPaneId();
+                if ($pane->getOwner() === self::DEFAULT_IW2_USER) {
+                    $paneId = self::getSHA1(
+                        $this->user->getUsername() . $this->getName() . $pane->getName()
+                    );
+                }
+
+                $overridingDashlet = self::getConn()->select((new Select())
                     ->columns('*')
                     ->from(Dashlet::OVERRIDING_TABLE)
                     ->where([
                         'dashlet_id = ?'    => $dashletId,
-                        'dashboard_id = ?'  => $pane->getPaneId()
+                        'dashboard_id = ?'  => $paneId
                     ]))->fetch();
 
                 if ($overridingDashlet) {
@@ -585,9 +602,9 @@ class DashboardHome extends NavigationItem
                             'owner = ?'         => $this->user->getUsername()
                         ]);
                     } else {
+                        $dashlet->setUserWidget();
+                        $dashlet->setOverride(true);
                         $dashlet
-                            ->setUserWidget()
-                            ->setOverride()
                             ->setDashletId($dashletId)
                             ->setDisabled($overridingDashlet->disabled);
 
@@ -626,31 +643,19 @@ class DashboardHome extends NavigationItem
     }
 
     /**
-     * Add a pane object to this home
+     * Add a new pane to this home
      *
-     * @param Pane $pane
+     * @param Pane|string $pane
      */
-    public function addPane(Pane $pane)
+    public function addPane($pane)
     {
-        $pane->setParentId($this->getIdentifier());
+        if (! $pane instanceof Pane) {
+            $pane = new Pane($pane);
+            $pane->setTitle($pane->getName());
+        }
+
+        $pane->setHome($this);
         $this->panes[$pane->getName()] = $pane;
-
-        return $this;
-    }
-
-    /**
-     * Creates a new empty pane with the given name
-     *
-     * @param $name
-     *
-     * @return $this
-     */
-    public function createPane($name)
-    {
-        $pane = new Pane($name);
-        $pane->setTitle($name);
-
-        $this->addPane($pane);
 
         return $this;
     }
@@ -681,7 +686,7 @@ class DashboardHome extends NavigationItem
             $table = Pane::TABLE;
             $condition = 'id = ?';
 
-            if ($pane->isOverridingPane()) {
+            if ($pane->isOverridingWidget()) {
                 $table = Pane::OVERRIDING_TABLE;
                 $condition = 'dashboard_id = ?';
             }

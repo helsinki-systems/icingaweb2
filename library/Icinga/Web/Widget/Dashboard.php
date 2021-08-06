@@ -6,9 +6,9 @@ namespace Icinga\Web\Widget;
 use Icinga\Exception\ConfigurationError;
 use Icinga\Exception\ProgrammingError;
 use Icinga\User;
+use Icinga\Web\Dashboard\Pane;
 use Icinga\Web\Menu;
 use Icinga\Web\Navigation\DashboardHome;
-use Icinga\Web\Widget\Dashboard\Pane;
 use ipl\Html\BaseHtmlElement;
 use ipl\Html\HtmlElement;
 use ipl\Html\Text;
@@ -40,6 +40,13 @@ class Dashboard extends BaseHtmlElement
      * @var string
      */
     const SHARED_DASHBOARDS = 'Shared Dashboards';
+
+    /**
+     * Upon mysql duplicate key error raised error code
+     *
+     * @var int
+     */
+    const PDO_DUPLICATE_KEY_ERR = 1062;
 
     protected $tag = 'div';
 
@@ -373,6 +380,10 @@ class Dashboard extends BaseHtmlElement
         $list = [];
         foreach ($this->getHomes() as $name => $home) {
             if ($home->getDisabled() && $skipDisabled) {
+                continue;
+            }
+
+            if ($home->getName() === self::AVAILABLE_DASHLETS) {
                 continue;
             }
 

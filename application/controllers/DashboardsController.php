@@ -5,15 +5,21 @@ namespace Icinga\Controllers;
 use GuzzleHttp\Psr7\ServerRequest;
 use Icinga\Application\Icinga;
 use Icinga\Exception\Http\HttpNotFoundException;
-use Icinga\Forms\Dashboard\AvailableDashlets;
 use Icinga\Forms\Dashboard\DashletForm;
-use Icinga\Forms\Dashboard\HomeAndPaneForm;
+use Icinga\Forms\Dashboard\HomePaneForm;
+use Icinga\Forms\Dashboard\HomeViewSwitcher;
+use Icinga\Web\Dashboard\AvailableDashlets;
 use Icinga\Web\Navigation\DashboardHome;
 use Icinga\Web\Widget\Dashboard;
 use Icinga\Web\Widget\Tabextension\DashboardSettings;
 use ipl\Web\Compat\CompatController;
 use ipl\Web\Url;
 
+/**
+ * Handle creation, removal and displaying of dashboards, panes and dashlets
+ *
+ * @see Dashboard for more information about dashboards
+ */
 class DashboardsController extends CompatController
 {
     /** @var Dashboard */
@@ -64,6 +70,11 @@ class DashboardsController extends CompatController
         $this->content = $this->dashboard;
     }
 
+    /**
+     * Display all the dashboards belongs to a Home set in the 'home' request parameter
+     *
+     * If no pane is submitted, the default pane is displayed (usually the first one)
+     */
     public function homeAction()
     {
         $home = $this->params->getRequired('home');
@@ -84,15 +95,17 @@ class DashboardsController extends CompatController
 
                 foreach ($moduleManager->getLoadedModules() as $module) {
                     if ($this->dashboard->getUser()->can($moduleManager::MODULE_PERMISSION_NS . $module->getName())) {
-                        if (empty($module->getDashletHomes())) {
+                        if (empty($module->getDashlets())) {
                             continue;
                         }
 
-                        $dashlets[$module->getName()] = $module->getDashletHomes();
+                        $dashlets[$module->getName()] = $module->getDashlets();
                     }
                 }
 
                 $this->addContent(new AvailableDashlets($dashlets));
+            } else {
+                // Shared dashboards
             }
         } else {
             if (! $activeHome || empty($activeHome->getPanes(true))) {
@@ -126,8 +139,8 @@ class DashboardsController extends CompatController
             'url'       => Url::fromRequest()
         ])->disableLegacyExtensions();
 
-        $homeForm = new HomeAndPaneForm($this->dashboard);
-        $homeForm->on(HomeAndPaneForm::ON_SUCCESS, function () use ($homeForm, $home) {
+        $homeForm = new HomePaneForm($this->dashboard);
+        $homeForm->on(HomePaneForm::ON_SUCCESS, function () use ($homeForm, $home) {
             if ($this->dashboard->hasHome($homeForm->getValue('name'))) {
                 $home = $homeForm->getValue('name');
             }
@@ -154,9 +167,9 @@ class DashboardsController extends CompatController
             'url'       => Url::fromRequest()
         ])->disableLegacyExtensions();
 
-        $homeForm = (new HomeAndPaneForm($this->dashboard))
+        $homeForm = (new HomePaneForm($this->dashboard))
             ->setAction((string)Url::fromRequest())
-            ->on(HomeAndPaneForm::ON_SUCCESS, function () use ($home) {
+            ->on(HomePaneForm::ON_SUCCESS, function () use ($home) {
                 // Since the navigation menu is not loaded that fast, we need to unset
                 // the just deleted home from this array as well.
                 $this->dashboard->unsetHome($home);
@@ -174,6 +187,31 @@ class DashboardsController extends CompatController
 
         $homeForm->load($this->dashboard->getActiveHome());
         $this->addContent($homeForm);
+    }
+
+    public function newPaneAction()
+    {
+        $dashletUrls = explode(',', $_POST['dashletUrl']);
+        $dashletNames = explode(',', $_POST['dashletName']);
+        $dashlets = array_combine($dashletNames, $dashletUrls);
+
+        $this->getTabs()->add('New Dashboard', [
+            'active'    => true,
+            'title'     => $this->translate('New Dashboard'),
+            'url'       => Url::fromRequest()
+        ])->disableLegacyExtensions();
+
+        $paneForm = new HomePaneForm($this->dashboard, $dashlets);
+        $paneForm->on(HomePaneForm::ON_SUCCESS, function () use ($paneForm) {
+            $home = [];
+            if ($this->dashboard->hasHome($paneForm->getValue('name'))) {
+                $home = $paneForm->getValue('name');
+            }
+
+            $this->redirectNow(Url::fromPath('dashboard/home')->addParams(['home' => $home]));
+        })->handleRequest(ServerRequest::fromGlobals());
+
+        $this->addContent($paneForm);
     }
 
     public function renamePaneAction()
@@ -195,8 +233,8 @@ class DashboardsController extends CompatController
             'url'       => Url::fromRequest()
         ])->disableLegacyExtensions();
 
-        $paneForm = new HomeAndPaneForm($this->dashboard);
-        $paneForm->on(HomeAndPaneForm::ON_SUCCESS, function () use ($paneForm, $home) {
+        $paneForm = new HomePaneForm($this->dashboard);
+        $paneForm->on(HomePaneForm::ON_SUCCESS, function () use ($paneForm, $home) {
             if ($this->dashboard->hasHome($paneForm->getValue('name'))) {
                 $home = $paneForm->getValue('name');
             }
@@ -227,8 +265,8 @@ class DashboardsController extends CompatController
             'url'       => Url::fromRequest()
         ])->disableLegacyExtensions();
 
-        $paneForm = (new HomeAndPaneForm($this->dashboard))
-            ->on(HomeAndPaneForm::ON_SUCCESS, function () use ($home) {
+        $paneForm = (new HomePaneForm($this->dashboard))
+            ->on(HomePaneForm::ON_SUCCESS, function () use ($home) {
                 $this->redirectNow(Url::fromPath('dashboard/settings')->addParams(['home' => $home]));
             })
             ->handleRequest(ServerRequest::fromGlobals());
@@ -249,7 +287,7 @@ class DashboardsController extends CompatController
         $dashletForm->on(DashletForm::ON_SUCCESS, function () use ($dashletForm) {
             $this->redirectNow(Url::fromPath(DashboardHome::URL_PATH)->addParams([
                 'home'  => $dashletForm->getValue('home'),
-                'pane'  => $dashletForm->paneName,
+                'pane'  => $dashletForm->getValue('pane'),
             ]));
         })->handleRequest(ServerRequest::fromGlobals());
 
@@ -278,7 +316,7 @@ class DashboardsController extends CompatController
         $dashletForm = new DashletForm($this->dashboard);
         $dashletForm->on(DashletForm::ON_SUCCESS, function () use ($dashletForm) {
             $home = $dashletForm->getValue('home');
-            if (! $dashletForm->homeCreated) {
+            if (! $dashletForm->hasBeenHomeCreated()) {
                 $home = $this->getParam('home');
             }
 
@@ -316,12 +354,12 @@ class DashboardsController extends CompatController
     {
         $this->createTabs();
 
-        $controlForm = new Dashboard\HomeViewSwitcher($this->dashboard);
+        $controlForm = new HomeViewSwitcher($this->dashboard);
 
-        $controlForm->on(Dashboard\HomeViewSwitcher::ON_SUCCESS, function () use ($controlForm) {
+        $controlForm->on(HomeViewSwitcher::ON_SUCCESS, function () use ($controlForm) {
             $home = $controlForm->getPopulatedValue('sort_dashboard_home');
             if (! $home) {
-                $home = $controlForm->activeHome;
+                $home = $controlForm->getHome();
             }
 
             $this->redirectNow(Url::fromPath('dashboard/settings')->addParams(['home' => $home]));
@@ -337,7 +375,11 @@ class DashboardsController extends CompatController
     private function createTabs()
     {
         $homeParam = $this->getParam('home');
-        if ($homeParam && $this->dashboard->hasHome($homeParam)) {
+        if ($homeParam && (
+            // Only dashlets provided by modules can be listed in this home
+            $homeParam !== Dashboard::AVAILABLE_DASHLETS
+            && $this->dashboard->hasHome($homeParam))
+        ) {
             $home = $this->dashboard->getHome($this->getParam('home'));
         } else {
             $home = $this->dashboard->rewindHomes();
@@ -355,7 +397,7 @@ class DashboardsController extends CompatController
     /**
      * Check for required params
      *
-     * @return Dashboard\Pane
+     * @return \Icinga\Web\Dashboard\Pane
      *
      * @throws HttpNotFoundException
      * @throws \Icinga\Exception\MissingParameterException

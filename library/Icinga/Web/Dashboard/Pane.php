@@ -1,38 +1,71 @@
 <?php
 /* Icinga Web 2 | (c) 2013 Icinga Development Team | GPLv2+ */
 
-namespace Icinga\Web\Widget\Dashboard;
+namespace Icinga\Web\Dashboard;
 
-use Icinga\Authentication\Auth;
 use Icinga\Common\Database;
 use Icinga\Exception\ProgrammingError;
 use Icinga\Exception\ConfigurationError;
-use Icinga\Web\Dashboard\Dashlet;
+use Icinga\Web\Navigation\DashboardHome;
 
 /**
  * A pane, displaying different Dashboard dashlets
  */
-class Pane implements UserWidget
+class Pane
 {
+    use UserWidget;
+
     use Database;
 
-    /** @var string A type for all panes provided by modules */
+    /**
+     * System panes are provided by the modules in PHP code
+     *
+     * and are available to all users
+     *
+     * @var string
+     */
     const SYSTEM = 'system';
 
-    /** @var string A type for user created panes */
-    const CUSTOM = 'private';
-
-    /** @var string Database table name */
-    const TABLE = 'dashboard';
-
-    const OVERRIDING_TABLE = 'dashboard_override';
+    /**
+     * Public panes are created by authorized users and
+     *
+     * are available to all users
+     *
+     * @var string
+     */
+    const PUBLIC_DS = 'public';
 
     /**
-     * Flag if widget is created by an user
+     * Private panes are created by any user and are only
      *
-     * @var bool
+     * available to this user
+     *
+     * @var string
      */
-    protected $userWidget = false;
+    const PRIVATE_DS = 'private';
+
+    /**
+     * Are available to users who have accepted a share or who
+     *
+     * have been assigned the dashboard by their Admin
+     *
+     * @var string
+     */
+    const SHARED = 'shared';
+
+    /**
+     * Database table name
+     *
+     * @var string
+     */
+    const TABLE = 'dashboard';
+
+    /**
+     * Database pane overriding table name
+     *
+     * @var string
+     */
+    const OVERRIDING_TABLE = 'dashboard_override';
 
     /**
      * The not translatable name of this pane
@@ -49,14 +82,7 @@ class Pane implements UserWidget
     private $title;
 
     /**
-     * A user this panel belongs to
-     *
-     * @var string
-     */
-    private $owner = 'icingaweb2';
-
-    /**
-     * An array of @see Dashlets that are displayed in this pane
+     * An array of @see Dashlet that are displayed in this pane
      *
      * @var array
      */
@@ -70,13 +96,6 @@ class Pane implements UserWidget
     private $disabled = false;
 
     /**
-     * Whether this pane overrides a system pane
-     *
-     * @var bool
-     */
-    private $override = false;
-
-    /**
      * Dashboard home id if the current pane
      *
      * @var integer
@@ -84,14 +103,21 @@ class Pane implements UserWidget
     private $parentId;
 
     /**
-     * Unique identifier of the this pane
+     * Dashboard home of this pane
+     *
+     * @var DashboardHome
+     */
+    private $home;
+
+    /**
+     * Unique identifier of this pane
      *
      * @var integer
      */
     private $paneId;
 
     /**
-     * A flag whether the user has create a dashlet in a system pane
+     * A flag whether the user has created a dashlet in a system pane
      *
      * @var string
      */
@@ -107,7 +133,7 @@ class Pane implements UserWidget
     /**
      * Create a new pane
      *
-     * @param string $name         The pane to create
+     * @param string $name The pane to create
      */
     public function __construct($name)
     {
@@ -116,25 +142,27 @@ class Pane implements UserWidget
     }
 
     /**
-     * Set the dashboard home id for this pane
+     * Set the dashboard home of this pane
      *
-     * @param  integer  $homeId
+     * @param  DashboardHome $home
+     *
+     * @return $this
      */
-    public function setParentId($homeId)
+    public function setHome(DashboardHome $home)
     {
-        $this->parentId = $homeId;
+        $this->home = $home;
 
         return $this;
     }
 
     /**
-     * Returns the dashboard home id of this pane
+     * Get the dashboard home of this pane
      *
-     * @return integer
+     * @return DashboardHome
      */
-    public function getParentId()
+    public function getHome()
     {
-        return $this->parentId;
+        return $this->home;
     }
 
     /**
@@ -184,7 +212,7 @@ class Pane implements UserWidget
     }
 
     /**
-     * Set type of this pane (system | private)
+     * Set type of this pane
      *
      * @param $type
      *
@@ -252,33 +280,9 @@ class Pane implements UserWidget
     }
 
     /**
-     * Set the owner of this panel
-     *
-     * @param $owner
-     *
-     * @return $this
-     */
-    public function setOwner($owner)
-    {
-        $this->owner = $owner;
-
-        return $this;
-    }
-
-    /**
-     * Get the owner of this panel
-     *
-     * @return string
-     */
-    public function getOwner()
-    {
-        return $this->owner;
-    }
-
-    /**
      * Return true if a dashlet with the given title exists in this pane
      *
-     * @param string $title     The title of the dashlet to check for existence
+     * @param string $title The title of the dashlet to check for existence
      *
      * @return bool
      */
@@ -300,10 +304,10 @@ class Pane implements UserWidget
     /**
      * Return a dashlet with the given name if existing
      *
-     * @param string $title         The title of the dashlet to return
+     * @param string $title       The title of the dashlet to return
      *
      * @return Dashlet            The dashlet with the given title
-     * @throws ProgrammingError     If the dashlet doesn't exist
+     * @throws ProgrammingError   If the dashlet doesn't exist
      */
     public function getDashlet($title)
     {
@@ -334,12 +338,12 @@ class Pane implements UserWidget
         }
 
         $owner = $dashlet->getPane()->getOwner();
-        if ($owner === \Icinga\Web\Navigation\DashboardHome::DEFAULT_IW2_USER) {
-            $owner = Auth::getInstance()->getUser()->getUsername();
+        if ($owner === DashboardHome::DEFAULT_IW2_USER) {
+            $owner = $this->getHome()->getUser()->getUsername();
         }
 
         if ($dashlet->isUserWidget() === true && ! $dashlet->getDisabled()) {
-            if ($dashlet->isOverriding()) {
+            if ($dashlet->isOverridingWidget()) {
                 $this->getDb()->delete('dashlet_override', [
                     'dashlet_id = ?'    => $dashlet->getDashletId(),
                     'owner = ?'         => $owner
@@ -347,13 +351,19 @@ class Pane implements UserWidget
             } else {
                 $this->getDb()->delete('dashlet', [
                     'id = ?'            => $dashlet->getDashletId(),
-                    'dashboard_id = ?'  => $dashlet->getPane()->getPaneId()
+                    'dashboard_id = ?'  => $this->getPaneId()
                 ]);
             }
-        } elseif (! $dashlet->getDisabled() && ! $this->isUserWidget()) {
+        } elseif (! $dashlet->getDisabled() && ! $this->getDisabled()) {
+            // When modifying system dashlets, we need also to change the id accordingly,
+            // so that we won't have id mismatch in DashboardHome when it is loading.
+            $paneId = DashboardHome::getSHA1(
+                $owner . $this->getHome()->getName() . $this->getName()
+            );
+
             $this->getDb()->insert('dashlet_override', [
                 'dashlet_id'    => $dashlet->getDashletId(),
-                'dashboard_id'  => $dashlet->getPane()->getPaneId(),
+                'dashboard_id'  => $paneId,
                 'owner'         => $owner,
                 'disabled'      => true
             ]);
@@ -376,7 +386,7 @@ class Pane implements UserWidget
         }
 
         // Remove dashlets only if this is a custom pane
-        if ($this->getOwner() !== \Icinga\Web\Navigation\DashboardHome::DEFAULT_IW2_USER) {
+        if ($this->getOwner() !== DashboardHome::DEFAULT_IW2_USER) {
             foreach ($dashlets as $dashlet) {
                 $this->removeDashlet($dashlet);
             }
@@ -386,7 +396,9 @@ class Pane implements UserWidget
     }
 
     /**
-     * Return all dashlets added at this pane
+     * Get all dashlets belongs to this pane
+     *
+     * @param bool $skipDisabled Whether to skip disabled dashlets
      *
      * @return array
      */
@@ -400,26 +412,11 @@ class Pane implements UserWidget
             });
         }
 
-        uasort($dashlets, function (Dashlet $x, $y) {
+        uasort($dashlets, function (Dashlet $x, Dashlet $y) {
             return $y->getOrder() - $x->getOrder();
         });
 
         return $dashlets;
-    }
-
-    /**
-     * Create, add and return a new dashlet
-     *
-     * @param   string  $title
-     * @param   string  $url
-     *
-     * @return  Dashlet
-     */
-    public function createDashlet($title, $url = null)
-    {
-        $dashlet = new Dashlet($title, $url, $this);
-        $this->addDashlet($dashlet);
-        return $dashlet;
     }
 
     /**
@@ -436,10 +433,11 @@ class Pane implements UserWidget
         if ($dashlet instanceof Dashlet) {
             $this->dashlets[$dashlet->getName()] = $dashlet;
         } elseif (is_string($dashlet) && $url !== null) {
-             $this->createDashlet($dashlet, $url);
+            $this->dashlets[$dashlet] = new Dashlet($dashlet, $url, $this);
         } else {
             throw new ConfigurationError('Invalid dashlet added: %s', $dashlet);
         }
+
         return $this;
     }
 
@@ -459,6 +457,7 @@ class Pane implements UserWidget
                 } else {
                     $name = $dashlet->getName() . '_2';
                 }
+
                 $this->dashlets[$name] = $dashlet;
             } else {
                 $this->dashlets[$dashlet->getName()] = $dashlet;
@@ -519,47 +518,5 @@ class Pane implements UserWidget
     public function getDisabled()
     {
         return $this->disabled;
-    }
-
-    /**
-     * Set whether this pane overrides a system pane
-     *
-     * @param  boolean $value
-     *
-     * @return $this
-     */
-    public function setOverride($value)
-    {
-        $this->override = (bool)$value;
-
-        return $this;
-    }
-
-    /**
-     * Get whether this pane overrides a system pane with the same name
-     *
-     * @return bool
-     */
-    public function isOverridingPane()
-    {
-        return $this->override;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setUserWidget($userWidget = true)
-    {
-        $this->userWidget = (bool) $userWidget;
-
-        return $this;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function isUserWidget()
-    {
-        return $this->userWidget;
     }
 }

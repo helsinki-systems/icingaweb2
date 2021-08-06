@@ -1,8 +1,7 @@
 <?php
 
-namespace Icinga\Web\Widget\Dashboard;
+namespace Icinga\Forms\Dashboard;
 
-use Icinga\Exception\InvalidPropertyException;
 use Icinga\Web\Widget\Dashboard;
 use ipl\Web\Compat\CompatForm;
 use ipl\Web\Url;
@@ -12,6 +11,7 @@ class HomeViewSwitcher extends CompatForm
     /** @var Dashboard */
     private $dashboard;
 
+    /** @var string */
     private $activeHome;
 
     public function __construct($dashboard)
@@ -35,7 +35,7 @@ class HomeViewSwitcher extends CompatForm
                 'required'       => true,
                 'label'          => t('Dashboard Home'),
                 'multiOptions'   => $sortControls,
-                'value'          => $this->activeHome?: current($sortControls),
+                'value'          => $this->activeHome ?: current($sortControls),
                 'description'    => t('Select a dashboard home you want to see the dashboards from.')
             ]
         );
@@ -44,18 +44,10 @@ class HomeViewSwitcher extends CompatForm
     public function onSuccess()
     {
         // Do nothing
-        parent::onSuccess();
     }
 
-    public function __get($name)
+    public function getHome()
     {
-        if (! property_exists($this, $name)) {
-            $class = get_class($this);
-            $message = "Access to undefined property $class::$name";
-
-            throw new InvalidPropertyException($message);
-        }
-
-        return $this->$name;
+        return $this->activeHome;
     }
 }
