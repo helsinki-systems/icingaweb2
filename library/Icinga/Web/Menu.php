@@ -21,6 +21,7 @@ class Menu extends Navigation
     {
         $this->init();
         $this->load('menu-item');
+        $this->loadDashboardHomes();
     }
 
     /**
@@ -148,8 +149,6 @@ class Menu extends Navigation
                 'priority'    => 900
             ]));
         }
-
-        $this->loadDashboardHomes();
     }
 
     /**

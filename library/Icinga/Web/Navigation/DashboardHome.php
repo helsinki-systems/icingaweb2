@@ -34,20 +34,6 @@ class DashboardHome extends NavigationItem
     const DEFAULT_IW2_USER = 'icingaweb2';
 
     /**
-     * The parameter that will be added to identify homes
-     *
-     * @var string
-     */
-    const TAB_PARAM = 'home';
-
-    /**
-     * Base path of this home being loaded
-     *
-     * @var string
-     */
-    const URL_PATH = 'dashboard/home';
-
-    /**
      * Database table name
      *
      * @var string
@@ -218,7 +204,7 @@ class DashboardHome extends NavigationItem
     public function init()
     {
         if ($this->getName() !== self::DEFAULT_HOME && ! $this->getDisabled()) {
-            $this->setUrl(Url::fromPath(self::URL_PATH, [self::TAB_PARAM => $this->getName()]));
+            $this->setUrl(Url::fromPath('dashboard/home', ['home' => $this->getName()]));
         }
 
         // Set default url to false when this home has been disabled, so it

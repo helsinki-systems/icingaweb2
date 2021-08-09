@@ -191,7 +191,7 @@ class Dashboard extends BaseHtmlElement
     {
         $menu = new Menu();
         /** @var DashboardHome $home */
-        foreach ($menu->getItem('dashboard')->getChildren() as $home) {
+        foreach ($menu->getItem('dashboard')->getChildren()->order() as $home) {
             $this->homes[$home->getName()] = $home;
         }
     }
@@ -206,8 +206,8 @@ class Dashboard extends BaseHtmlElement
         $activeHome = $this->getActiveHome();
 
         if ($activeHome && $activeHome->getName() !== DashboardHome::DEFAULT_HOME) {
-            $url = Url::fromPath(DashboardHome::URL_PATH)->getUrlWithout([DashboardHome::TAB_PARAM, $this->tabParam]);
-            $url->addParams([DashboardHome::TAB_PARAM => $activeHome->getName()]);
+            $url = Url::fromPath('dashboard/home')->getUrlWithout(['home', $this->tabParam]);
+            $url->addParams(['home' => $activeHome->getName()]);
         } else {
             $url = Url::fromPath('dashboard')->getUrlWithout($this->tabParam);
         }
@@ -383,7 +383,9 @@ class Dashboard extends BaseHtmlElement
                 continue;
             }
 
-            if ($home->getName() === self::AVAILABLE_DASHLETS) {
+            // User is not allowed to add new content directly to this dashboard home
+            if ($home->getName() === self::AVAILABLE_DASHLETS
+                || $home->getName() === self::SHARED_DASHBOARDS) {
                 continue;
             }
 

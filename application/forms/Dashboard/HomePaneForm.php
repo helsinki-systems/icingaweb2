@@ -2,6 +2,7 @@
 
 namespace Icinga\Forms\Dashboard;
 
+use Icinga\Web\Dashboard\Dashlet;
 use Icinga\Web\Dashboard\Pane;
 use Icinga\Web\Navigation\DashboardHome;
 use Icinga\Web\Navigation\NavigationItem;
@@ -293,9 +294,9 @@ class HomePaneForm extends CompatForm
                 // Begin the DB transaction
                 $db->beginTransaction();
 
-                $paneUpdated = false;
+                $paneEnabled = false;
                 if ($this->getPopulatedValue('enable_pane') === 'y') {
-                    $paneUpdated = true;
+                    $paneEnabled = true;
 
                     $db->update(Pane::OVERRIDING_TABLE, ['disabled' => (int) false], [
                         'owner = ?'         => $pane->getOwner(),
@@ -303,18 +304,19 @@ class HomePaneForm extends CompatForm
                     ]);
                 }
 
-                if (! $paneUpdated) {
+                if (! $paneEnabled) {
+                    $paneId = DashboardHome::getSHA1($username . $newHome . $pane->getName());
+
                     if ($pane->isOverridingWidget()) { // Custom panes that overwrites system panes
                         $db->update(Pane::OVERRIDING_TABLE, [
-                            'home_id'   => $homeId,
-                            'label'     => $this->getValue('title'),
+                            'dashboard_id'  => $paneId,
+                            'home_id'       => $homeId,
+                            'label'         => $this->getValue('title'),
                         ], [
                             'owner = ?'         => $pane->getOwner(),
                             'dashboard_id = ?'  => $pane->getPaneId(),
                         ]);
                     } elseif (! $pane->isUserWidget()) { // System panes
-                        $paneId = DashboardHome::getSHA1($username . $newHome . $pane->getName());
-
                         $db->insert(Pane::OVERRIDING_TABLE, [
                             'dashboard_id'  => $paneId,
                             'home_id'       => $homeId,
@@ -340,10 +342,37 @@ class HomePaneForm extends CompatForm
                             $homeId = $db->lastInsertId();
                         }
 
-                        $db->update('dashboard', [
-                            'home_id'   => $homeId,
-                            'label'     => $this->getPopulatedValue('title'),
-                        ], ['id = ?' => $pane->getPaneId()]);
+                        try {
+                            $db->update(Pane::TABLE, [
+                                'id'        => $paneId,
+                                'home_id'   => $homeId,
+                                'label'     => $this->getPopulatedValue('title'),
+                                'source'    => Pane::PRIVATE_DS,
+                            ], ['id = ?' => $pane->getPaneId()]);
+                        } catch (\PDOException $err) {
+                            if ($err->errorInfo[1] === Dashboard::PDO_DUPLICATE_KEY_ERR) { // Duplicate entry
+                                Notification::error(
+                                    sprintf(t('There is already a pane "%s" within this home.'), $pane->getName())
+                                );
+
+                                return;
+                            }
+                        }
+
+                        if ($newHome !== $orgHome->getName()) {
+                            // As we generate the Ids according to the following concept "user + home + pane + dashlet",
+                            // we have to also renew the individual Ids each time we move to another home.
+                            foreach ($pane->getDashlets() as $dashlet) {
+                                $dashletId = DashboardHome::getSHA1(
+                                    $username . $newHome . $pane->getName() . $dashlet->getName()
+                                );
+
+                                $db->update(Dashlet::TABLE, ['id' => $dashletId], [
+                                    'id = ?'            => $dashlet->getDashletId(),
+                                    'dashboard_id = ?'  => $paneId
+                                ]);
+                            }
+                        }
                     }
                 }
 
@@ -356,7 +385,9 @@ class HomePaneForm extends CompatForm
                     $this->getValue('title')
                 );
 
-                if ($orgHome->getName() !== $newHome) {
+                if ($paneEnabled) {
+                    $message = sprintf(t('Pane "%s" successfully enabled.'), $pane->getTitle());
+                } elseif ($orgHome->getName() !== $newHome) {
                     $message = sprintf(
                         t('Pane "%s" successfully moved from "%s" to "%s"'),
                         $this->getValue('title'),
@@ -372,7 +403,13 @@ class HomePaneForm extends CompatForm
                 $pane->removeDashlets();
                 $orgHome->removePane($pane->getName());
 
-                Notification::success(t('Dashboard has been removed') . ': ' . $pane->getTitle());
+                $message = t('Pane has been successfully removed') . ': ' . $pane->getTitle();
+
+                if (! $pane->isUserWidget()) {
+                    $message = t('Pane has been successfully disabled') . ': ' . $pane->getTitle();
+                }
+
+                Notification::success($message);
             }
         } else { // Dashboard homes
             if ($this->getPopulatedValue('btn_update')) {

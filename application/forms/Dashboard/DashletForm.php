@@ -524,14 +524,11 @@ class DashletForm extends CompatForm
                 ], ['dashlet.id = ?'  => $orgDashlet->getDashletId()]);
             } catch (\PDOException $err) {
                 if ($err->errorInfo[1] === Dashboard::PDO_DUPLICATE_KEY_ERR) { // Duplicate entry
-                    $db->update(Dashlet::TABLE, [
-                        'label' => $this->getValue('dashlet'),
-                        'url'   => $this->getValue('url')
-                    ], ['dashlet.id = ?' => $dashletId]);
+                    Notification::error(
+                        sprintf(t('There is already a dashlet "%s" within this pane.'), $orgDashlet->getName())
+                    );
 
-                    $db->delete(Dashlet::TABLE, [
-                        'id = ?' => $orgDashlet->getDashletId(),
-                    ]);
+                    return;
                 }
             }
         }

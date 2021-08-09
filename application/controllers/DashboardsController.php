@@ -30,7 +30,6 @@ class DashboardsController extends CompatController
         $this->dashboard = new Dashboard();
         $this->dashboard->setUser($this->Auth()->getUser());
         $this->dashboard->setTabs($this->getTabs());
-        $this->dashboard->load();
     }
 
     /**
@@ -78,9 +77,10 @@ class DashboardsController extends CompatController
     public function homeAction()
     {
         $home = $this->params->getRequired('home');
-        $activeHome = $this->dashboard->getActiveHome();
 
         $this->createTabs();
+
+        $activeHome = $this->dashboard->getActiveHome();
 
         if ($home === Dashboard::AVAILABLE_DASHLETS || $home === Dashboard::SHARED_DASHBOARDS) {
             $this->getTabs()->add($home, [
@@ -129,6 +129,8 @@ class DashboardsController extends CompatController
     {
         $home = $this->params->getRequired('home');
 
+        $this->dashboard->load();
+
         if (! $this->dashboard->hasHome($home)) {
             throw new HttpNotFoundException($this->translate('Home not found'));
         }
@@ -156,6 +158,8 @@ class DashboardsController extends CompatController
     public function removeHomeAction()
     {
         $home = $this->params->getRequired('home');
+
+        $this->dashboard->load();
 
         if (! $this->dashboard->hasHome($home)) {
             throw new HttpNotFoundException($this->translate('Home not found'));
@@ -191,6 +195,8 @@ class DashboardsController extends CompatController
 
     public function newPaneAction()
     {
+        $this->dashboard->load();
+
         if (isset($_POST['dashletUrl']) && isset($_POST['dashletName'])) {
             $dashletUrls = explode(',', $_POST['dashletUrl']);
             $dashletNames = explode(',', $_POST['dashletName']);
@@ -222,6 +228,8 @@ class DashboardsController extends CompatController
     {
         $home = $this->params->getRequired('home');
         $pane = $this->params->getRequired('pane');
+
+        $this->dashboard->load();
 
         if (! $this->dashboard->hasHome($home)) {
             throw new HttpNotFoundException($this->translate('Home not found'));
@@ -255,6 +263,8 @@ class DashboardsController extends CompatController
         $home = $this->params->getRequired('home');
         $pane = $this->params->getRequired('pane');
 
+        $this->dashboard->load();
+
         if (! $this->dashboard->hasHome($home)) {
             throw new HttpNotFoundException($this->translate('Home not found'));
         }
@@ -281,6 +291,8 @@ class DashboardsController extends CompatController
 
     public function newDashletAction()
     {
+        $this->dashboard->load();
+
         $this->getTabs()->add('new-dashlet', [
             'active'    => true,
             'label'     => $this->translate('New Dashlet'),
@@ -289,7 +301,7 @@ class DashboardsController extends CompatController
 
         $dashletForm = new DashletForm($this->dashboard);
         $dashletForm->on(DashletForm::ON_SUCCESS, function () use ($dashletForm) {
-            $this->redirectNow(Url::fromPath(DashboardHome::URL_PATH)->addParams([
+            $this->redirectNow(Url::fromPath('dashboard/home')->addParams([
                 'home'  => $dashletForm->getValue('home'),
                 'pane'  => $dashletForm->getValue('pane'),
             ]));
@@ -334,6 +346,7 @@ class DashboardsController extends CompatController
     public function removeDashletAction()
     {
         $this->validateParams();
+
         $home = $this->getParam('home');
 
         $this->getTabs()->add('remove-dashlet', [
@@ -378,20 +391,22 @@ class DashboardsController extends CompatController
      */
     private function createTabs()
     {
+        $this->dashboard->load();
+
         $homeParam = $this->getParam('home');
         if ($homeParam && (
             // Only dashlets provided by modules can be listed in this home
             $homeParam !== Dashboard::AVAILABLE_DASHLETS
             && $this->dashboard->hasHome($homeParam))
         ) {
-            $home = $this->dashboard->getHome($this->getParam('home'));
+            $home = $this->dashboard->getHome($homeParam);
         } else {
             $home = $this->dashboard->rewindHomes();
         }
 
         $urlParam = [];
 
-        if (! empty($home) && ! $home->getAttribute('disabled')) {
+        if (! empty($home) && ! $home->getDisabled()) {
             $urlParam = ['home' => $home->getName()];
         }
 
@@ -411,6 +426,8 @@ class DashboardsController extends CompatController
         $home = $this->params->getRequired('home');
         $pane = $this->params->getRequired('pane');
         $dashlet = $this->params->getRequired('dashlet');
+
+        $this->dashboard->load();
 
         if (! $this->dashboard->hasHome($home)) {
             throw new HttpNotFoundException($this->translate('Home not found'));
