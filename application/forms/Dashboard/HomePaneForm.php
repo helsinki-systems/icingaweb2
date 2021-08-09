@@ -217,10 +217,7 @@ class HomePaneForm extends CompatForm
             $this->add(
                 HtmlElement::create(
                     'div',
-                    [
-                        'class' => 'control-group form-controls',
-                        'style' => 'position: relative; margin-right: 1em; margin-top: 2em;'
-                    ],
+                    ['class' => 'control-group form-controls'],
                     [
                         HtmlElement::create(
                             'input',
@@ -270,7 +267,7 @@ class HomePaneForm extends CompatForm
                 $newHome = $this->getPopulatedValue('home', $orgHome->getName());
                 $homeId = $orgHome->getIdentifier();
 
-                if ($pane->getOwner() === DashboardHome::DEFAULT_IW2_USER && $orgHome->getName() !== $newHome) {
+                if (! $pane->isUserWidget() && $orgHome->getName() !== $newHome) {
                     Notification::error(sprintf(
                         t('It is not allowed to move system dashboard: "%s"'),
                         $pane->getTitle()

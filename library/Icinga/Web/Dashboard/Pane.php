@@ -84,7 +84,7 @@ class Pane
     /**
      * An array of @see Dashlet that are displayed in this pane
      *
-     * @var array
+     * @var Dashlet[]
      */
     private $dashlets = array();
 
@@ -452,16 +452,13 @@ class Pane
         /* @var $dashlet Dashlet */
         foreach ($dashlets as $dashlet) {
             if (array_key_exists($dashlet->getName(), $this->dashlets)) {
-                if (preg_match('/_(\d+)$/', $dashlet->getName(), $m)) {
-                    $name = preg_replace('/_\d+$/', $m[1]++, $dashlet->getName());
-                } else {
-                    $name = $dashlet->getName() . '_2';
+                // Custom dashlets always take precedence over system dashlets
+                if (! $dashlet->isUserWidget() && $this->dashlets[$dashlet->getName()]->isUserWidget()) {
+                    continue;
                 }
-
-                $this->dashlets[$name] = $dashlet;
-            } else {
-                $this->dashlets[$dashlet->getName()] = $dashlet;
             }
+
+            $this->dashlets[$dashlet->getName()] = $dashlet;
         }
 
         return $this;

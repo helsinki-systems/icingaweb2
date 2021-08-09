@@ -191,27 +191,31 @@ class DashboardsController extends CompatController
 
     public function newPaneAction()
     {
-        $dashletUrls = explode(',', $_POST['dashletUrl']);
-        $dashletNames = explode(',', $_POST['dashletName']);
-        $dashlets = array_combine($dashletNames, $dashletUrls);
+        if (isset($_POST['dashletUrl']) && isset($_POST['dashletName'])) {
+            $dashletUrls = explode(',', $_POST['dashletUrl']);
+            $dashletNames = explode(',', $_POST['dashletName']);
+            $dashlets = array_combine($dashletNames, $dashletUrls);
 
-        $this->getTabs()->add('New Dashboard', [
-            'active'    => true,
-            'title'     => $this->translate('New Dashboard'),
-            'url'       => Url::fromRequest()
-        ])->disableLegacyExtensions();
+            $this->getTabs()->add('New Dashboard', [
+                'active'    => true,
+                'title'     => $this->translate('New Dashboard'),
+                'url'       => Url::fromRequest()
+            ])->disableLegacyExtensions();
 
-        $paneForm = new HomePaneForm($this->dashboard, $dashlets);
-        $paneForm->on(HomePaneForm::ON_SUCCESS, function () use ($paneForm) {
-            $home = [];
-            if ($this->dashboard->hasHome($paneForm->getValue('name'))) {
-                $home = $paneForm->getValue('name');
-            }
+            $paneForm = new HomePaneForm($this->dashboard, $dashlets);
+            $paneForm->on(HomePaneForm::ON_SUCCESS, function () use ($paneForm) {
+                $home = [];
+                if ($this->dashboard->hasHome($paneForm->getValue('name'))) {
+                    $home = $paneForm->getValue('name');
+                }
 
-            $this->redirectNow(Url::fromPath('dashboard/home')->addParams(['home' => $home]));
-        })->handleRequest(ServerRequest::fromGlobals());
+                $this->redirectNow(Url::fromPath('dashboard/home')->addParams(['home' => $home]));
+            })->handleRequest(ServerRequest::fromGlobals());
 
-        $this->addContent($paneForm);
+            $this->addContent($paneForm);
+        } else {
+            $this->redirectNow(Url::fromPath('dashboard/home')->addParams(['home' => Dashboard::AVAILABLE_DASHLETS]));
+        }
     }
 
     public function renamePaneAction()

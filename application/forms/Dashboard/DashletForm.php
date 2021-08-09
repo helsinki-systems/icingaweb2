@@ -315,8 +315,9 @@ class DashletForm extends CompatForm
             $paneLabel = $paneName;
             $paneId = DashboardHome::getSHA1($username . $home . $paneName);
 
-            if ($dashboard->getActiveHome()->hasPane($paneName)) {
-                $tmpPane = $dashboard->getActiveHome()->getPane($paneName);
+            $activeHome = $dashboard->getActiveHome();
+            if ($activeHome->getName() === $home && $activeHome->hasPane($paneName)) {
+                $tmpPane = $activeHome->getPane($paneName);
                 $paneLabel = $tmpPane->getTitle();
 
                 if ($tmpPane->getOwner() === DashboardHome::DEFAULT_IW2_USER) {

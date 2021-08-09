@@ -35,7 +35,7 @@ class Settings extends BaseHtmlElement
             [
                 HtmlElement::create(
                     'th',
-                    ['style' => 'width: 18em;'],
+                    null,
                     new HtmlElement('strong', null, Text::create(t('Dashlet Name')))
                 ),
                 new HtmlElement(
@@ -59,8 +59,8 @@ class Settings extends BaseHtmlElement
                 'tr',
                 null,
                 HtmlElement::create('th', [
+                    'class'     => 'dashboard-th home-th',
                     'colspan'   => '2',
-                    'style'     => 'text-align: left; padding: 0.5em; background-color: #0095bf;'
                 ], new Link(
                     $home->getLabel(),
                     sprintf('dashboard/rename-home?home=%s', $home->getName()),
@@ -72,8 +72,8 @@ class Settings extends BaseHtmlElement
 
             if ($home->getDisabled()) {
                 $tableRow->add(HtmlElement::create('td', [
-                    'style' => 'text-align: center; width: 15px;'
-                ], new Icon('ban', ['style' => 'color: red; font-size: 1.5em;'])));
+                    'class' => 'ban-icon-class-td',
+                ], new Icon('ban', ['class' => "ban-icon"])));
 
                 return $tbody->add($tableRow);
             }
@@ -92,7 +92,7 @@ class Settings extends BaseHtmlElement
                 $tableRow = new HtmlElement('tr', null);
                 $th = HtmlElement::create('th', [
                     'colspan'   => '2',
-                    'style'     => 'text-align: left; padding: 0.5em;'
+                    'class'     => 'dashboard-th pane-th'
                 ]);
                 $th->add(new Link(
                     $pane->getTitle(),
@@ -108,9 +108,9 @@ class Settings extends BaseHtmlElement
 
                 $tableRow->add($th);
                 if ($pane->getDisabled()) {
-                    $tableRow->add(HtmlElement::create('td', ['style' => 'text-align: right; width: 1%;'], new Icon(
+                    $tableRow->add(HtmlElement::create('td', ['class' => 'ban-icon-class-td'], new Icon(
                         'ban',
-                        ['style' => 'font-size: 1.5em; color: red; position: relative;']
+                        ['class' => 'ban-icon']
                     )));
 
                     $tbody->add($tableRow);
@@ -137,25 +137,21 @@ class Settings extends BaseHtmlElement
                                     $pane->getName(),
                                     $dashlet->getName()
                                 ),
-                                [
-                                    'title' => sprintf(t('Edit dashlet %s'), $dashlet->getTitle())
-                                ]
+                                ['title' => sprintf(t('Edit dashlet %s'), $dashlet->getTitle())]
                             )
                         ));
-                        $tr->add(HtmlElement::create('td', [
-                            'style' => ('
-                                table-layout: fixed; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-                            ')
-                        ], new Link(
+
+                        $tr->add(HtmlElement::create('td', ['class' => 'dashlet-class-td'], new Link(
                             $dashlet->getUrl()->getRelativeUrl(),
                             $dashlet->getUrl()->getRelativeUrl(),
                             ['title' => sprintf(t('Show dashlet %s'), $dashlet->getTitle())]
                         )));
 
                         if ($dashlet->getDisabled()) {
-                            $tr->add(HtmlElement::create('td', [
-                                'style' => 'text-align: right;'
-                            ], new Icon('ban', ['style' => 'font-size: 1.5em; color: red; position: relative;'])));
+                            $tr->add(HtmlElement::create('td', ['class' => 'ban-icon-class-td'], new Icon(
+                                'ban',
+                                ['class' => 'ban-icon']
+                            )));
                         }
 
                         $tableRow->add($tr);

@@ -300,9 +300,10 @@ class Dashlet extends BaseHtmlElement
             $url = $this->getUrl();
             $url->setParam('showCompact', true);
 
+            $pane = $this->getPane();
             $this->addAttributes([
                 'data-icinga-url'       => $url,
-                'data-icinga-dashlets'  => $this->getPane()->getHome()->getName() . $this->getPane()->getName() . $this->getName(),
+                'data-icinga-dashlets'  => $pane->getHome()->getName() . $pane->getName() . $this->getName(),
             ]);
             $this->add(new HtmlElement('h1', null, new Link(
                 $this->getTitle(),
@@ -316,7 +317,7 @@ class Dashlet extends BaseHtmlElement
 
             $this->add(HtmlElement::create(
                 'p',
-                ['class'    => 'progress-label'],
+                ['class' => 'progress-label'],
                 [
                     $this->getProgressLabe(),
                     HtmlElement::create('span', null, '.'),
