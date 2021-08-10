@@ -112,12 +112,12 @@ class Pane
     /**
      * Unique identifier of this pane
      *
-     * @var integer
+     * @var string
      */
     private $paneId;
 
     /**
-     * A flag whether the user has created a dashlet in a system pane
+     * A type of this pane
      *
      * @var string
      */
@@ -168,7 +168,7 @@ class Pane
     /**
      * Set unique identifier of this pane
      *
-     * @param  integer  $id
+     * @param  string  $id
      */
     public function setPaneId($id)
     {
@@ -180,7 +180,7 @@ class Pane
     /**
      * Get the unique identifier of this pane
      *
-     * @return integer
+     * @return string
      */
     public function getPaneId()
     {
@@ -314,6 +314,7 @@ class Pane
         if ($this->hasDashlet($title)) {
             return $this->dashlets[$title];
         }
+
         throw new ProgrammingError(
             'Trying to access invalid dashlet: %s',
             $title
@@ -355,8 +356,8 @@ class Pane
                 ]);
             }
         } elseif (! $dashlet->getDisabled() && ! $this->getDisabled()) {
-            // When modifying system dashlets, we need also to change the id accordingly,
-            // so that we won't have id mismatch in DashboardHome when it is loading.
+            // When modifying system dashlets, we need also to change the pane id accordingly,
+            // so that we won't have id mismatch in DashboardHome class when it is loading.
             $paneId = DashboardHome::getSHA1(
                 $owner . $this->getHome()->getName() . $this->getName()
             );

@@ -27,6 +27,24 @@ class DashboardHome extends NavigationItem
     const DEFAULT_HOME = 'Default Home';
 
     /**
+     * A Home where all collected dashlets provided by modules are
+     *
+     * being presented in a special view
+     *
+     * @var string
+     */
+    const AVAILABLE_DASHLETS = 'Available Dashlets';
+
+    /**
+     * A Home where all dashboards shared with this user are
+     *
+     * displayed in a dedicated view
+     *
+     * @var string
+     */
+    const SHARED_DASHBOARDS = 'Shared Dashboards';
+
+    /**
      * A default user of some system homes
      *
      * @var string
@@ -352,8 +370,8 @@ class DashboardHome extends NavigationItem
             ->joinLeft('dashboard_order do', 'd.id = do.dashboard_id')
             ->where(['dh.id = ?' => $this->getIdentifier()])
             ->where([
-                'd.owner = ?'   => $this->user->getUsername(),
-                'dh.owner = ?'  => $this->user->getUsername()
+                'd.owner = ?'   => $this->getUser()->getUsername(),
+                'dh.owner = ?'  => $this->getUser()->getUsername()
             ], 'OR')
             ->orderBy('do.priority', 'DESC'));
 
@@ -376,8 +394,8 @@ class DashboardHome extends NavigationItem
                 ->joinLeft('dashlet_order do', 'ds.id = do.dashlet_id')
                 ->where(['d.id = ?' => $pane->getPaneId()])
                 ->where([
-                    'ds.owner = ?'  => $this->user->getUsername(),
-                    'd.owner = ?'   => $this->user->getUsername()
+                    'ds.owner = ?'  => $this->getUser()->getUsername(),
+                    'd.owner = ?'   => $this->getUser()->getUsername()
                 ], 'OR')
                 ->orderBy('do.priority', 'DESC'));
 
@@ -520,12 +538,12 @@ class DashboardHome extends NavigationItem
     {
         // Check whether the pane is a system or cloned pane
         if ($pane->getOwner() === self::DEFAULT_IW2_USER || $pane->getType() === Pane::SYSTEM) {
-            $paneId = self::getSHA1($this->user->getUsername() . $this->getName() . $pane->getName());
+            $paneId = self::getSHA1($this->getUser()->getUsername() . $this->getName() . $pane->getName());
             $overridingPane = $this->getDb()->select((new Select())
                 ->columns('*')
                 ->from(Pane::OVERRIDING_TABLE)
                 ->where([
-                    'owner = ?'         => $this->user->getUsername(),
+                    'owner = ?'         => $this->getUser()->getUsername(),
                     'dashboard_id = ?'  => $paneId
                 ]))->fetch();
 
@@ -534,7 +552,7 @@ class DashboardHome extends NavigationItem
                 if ((! $overridingPane->label || $overridingPane->label === $pane->getTitle()) &&
                     ! (bool) $overridingPane->disabled) {
                     $this->getDb()->delete(Pane::OVERRIDING_TABLE, [
-                        'owner = ?'         => $this->user->getUsername(),
+                        'owner = ?'         => $this->getUser()->getUsername(),
                         'dashboard_id = ?'  => $paneId
                     ]);
                 } else {
@@ -559,13 +577,13 @@ class DashboardHome extends NavigationItem
                 // Since the system dashlet ids are being modified when writing them into the
                 // DB, we have to regenerate them here as well.
                 $dashletId = self::getSHA1(
-                    $this->user->getUsername() . $this->getName() . $pane->getName() . $dashlet->getName()
+                    $this->getUser()->getUsername() . $this->getName() . $pane->getName() . $dashlet->getName()
                 );
 
                 $paneId = $pane->getPaneId();
                 if ($pane->getOwner() === self::DEFAULT_IW2_USER) {
                     $paneId = self::getSHA1(
-                        $this->user->getUsername() . $this->getName() . $pane->getName()
+                        $this->getUser()->getUsername() . $this->getName() . $pane->getName()
                     );
                 }
 
@@ -585,9 +603,11 @@ class DashboardHome extends NavigationItem
                         ! (bool) $overridingDashlet->disabled) {
                         $this->getDb()->delete(Dashlet::OVERRIDING_TABLE, [
                             'dashlet_id = ?'    => $dashletId,
-                            'owner = ?'         => $this->user->getUsername()
+                            'owner = ?'         => $this->getUser()->getUsername()
                         ]);
                     } else {
+                        $pane->setPaneId($paneId);
+
                         $dashlet->setUserWidget();
                         $dashlet->setOverride(true);
                         $dashlet
@@ -679,13 +699,13 @@ class DashboardHome extends NavigationItem
 
             $this->getDb()->delete($table, [$condition => $pane->getPaneId(), 'owner = ?' => $pane->getOwner()]);
         } elseif (! $pane->getDisabled() && ! $this->getDisabled()) {
-            $paneId = self::getSHA1($this->user->getUsername() . $this->getName() . $pane->getName());
+            $paneId = self::getSHA1($this->getUser()->getUsername() . $this->getName() . $pane->getName());
 
             // User is going to disable a system pane
             $this->getDb()->insert(Pane::OVERRIDING_TABLE, [
                 'dashboard_id'  => $paneId,
                 'home_id'       => $this->getIdentifier(),
-                'owner'         => $this->user->getUsername(),
+                'owner'         => $this->getUser()->getUsername(),
                 'disabled'      => true
             ]);
         }

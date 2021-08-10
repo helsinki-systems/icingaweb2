@@ -28,20 +28,6 @@ use ipl\Web\Widget\Tabs;
 class Dashboard extends BaseHtmlElement
 {
     /**
-     * Preserve key name for coming features
-     *
-     * @var string
-     */
-    const AVAILABLE_DASHLETS = 'Available Dashlets';
-
-    /**
-     * Preserve key name for coming features
-     *
-     * @var string
-     */
-    const SHARED_DASHBOARDS = 'Shared Dashboards';
-
-    /**
      * Upon mysql duplicate key error raised error code
      *
      * @var int
@@ -117,6 +103,14 @@ class Dashboard extends BaseHtmlElement
         $this->loadHomeItems();
         $this->loadDashboards();
 
+        if (! $this->hasHome(DashboardHome::AVAILABLE_DASHLETS)) {
+            DashboardHome::getConn()->insert(DashboardHome::TABLE, [
+                'name'  => DashboardHome::AVAILABLE_DASHLETS,
+                'label' => DashboardHome::AVAILABLE_DASHLETS,
+                'owner' => DashboardHome::DEFAULT_IW2_USER
+            ]);
+        }
+
         return $this;
     }
 
@@ -191,7 +185,7 @@ class Dashboard extends BaseHtmlElement
     {
         $menu = new Menu();
         /** @var DashboardHome $home */
-        foreach ($menu->getItem('dashboard')->getChildren()->order() as $home) {
+        foreach ($menu->getItem('dashboard')->getChildren() as $home) {
             $this->homes[$home->getName()] = $home;
         }
     }
@@ -384,8 +378,8 @@ class Dashboard extends BaseHtmlElement
             }
 
             // User is not allowed to add new content directly to this dashboard home
-            if ($home->getName() === self::AVAILABLE_DASHLETS
-                || $home->getName() === self::SHARED_DASHBOARDS) {
+            if ($home->getName() === DashboardHome::AVAILABLE_DASHLETS
+                || $home->getName() === DashboardHome::SHARED_DASHBOARDS) {
                 continue;
             }
 

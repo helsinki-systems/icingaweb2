@@ -277,6 +277,15 @@ class HomePaneForm extends CompatForm
                     return;
                 }
 
+                if ($pane->isOverridingWidget() && $orgHome->getName() !== $newHome) {
+                    Notification::error(sprintf(
+                        t('Pane "%s" can\'t be moved, as it overwrites a system pane'),
+                        $pane->getName()
+                    ));
+
+                    return;
+                }
+
                 $createNewHome = true;
                 if ($this->dashboard->hasHome($newHome)) {
                     $home = $this->dashboard->getHome($newHome);

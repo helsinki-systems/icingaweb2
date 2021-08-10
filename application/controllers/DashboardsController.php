@@ -82,14 +82,14 @@ class DashboardsController extends CompatController
 
         $activeHome = $this->dashboard->getActiveHome();
 
-        if ($home === Dashboard::AVAILABLE_DASHLETS || $home === Dashboard::SHARED_DASHBOARDS) {
+        if ($home === DashboardHome::AVAILABLE_DASHLETS || $home === DashboardHome::SHARED_DASHBOARDS) {
             $this->getTabs()->add($home, [
                 'active'    => true,
                 'label'     => $home,
                 'url'       => Url::fromRequest()
             ]);
 
-            if ($home === Dashboard::AVAILABLE_DASHLETS) {
+            if ($home === DashboardHome::AVAILABLE_DASHLETS) {
                 $moduleManager = Icinga::app()->getModuleManager();
                 $dashlets = [];
 
@@ -220,7 +220,9 @@ class DashboardsController extends CompatController
 
             $this->addContent($paneForm);
         } else {
-            $this->redirectNow(Url::fromPath('dashboard/home')->addParams(['home' => Dashboard::AVAILABLE_DASHLETS]));
+            $this->redirectNow(Url::fromPath('dashboard/home')->addParams([
+                'home' => DashboardHome::AVAILABLE_DASHLETS
+            ]));
         }
     }
 
@@ -396,7 +398,7 @@ class DashboardsController extends CompatController
         $homeParam = $this->getParam('home');
         if ($homeParam && (
             // Only dashlets provided by modules can be listed in this home
-            $homeParam !== Dashboard::AVAILABLE_DASHLETS
+            $homeParam !== DashboardHome::AVAILABLE_DASHLETS
             && $this->dashboard->hasHome($homeParam))
         ) {
             $home = $this->dashboard->getHome($homeParam);

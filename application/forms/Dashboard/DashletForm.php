@@ -428,8 +428,7 @@ class DashletForm extends CompatForm
         $createNewPane = true;
 
         if ($activeHome && $activeHome->hasPane($paneName)) {
-            $newPane = $activeHome->getPane($paneName);
-            $paneId = $newPane->getPaneId();
+            $paneId = $activeHome->getPane($paneName)->getPaneId();
 
             $createNewPane = false;
         }
@@ -456,6 +455,10 @@ class DashletForm extends CompatForm
                 $username . $homeName . $orgPane->getName() . $orgDashlet->getName()
             );
 
+            if (! $orgPane->isUserWidget()) {
+                $paneId = DashboardHome::getSHA1($username . $homeName . $orgPane->getName());
+            }
+
             $db->insert(Dashlet::OVERRIDING_TABLE, [
                 'dashlet_id'    => $dashletId,
                 'dashboard_id'  => $paneId,
@@ -465,7 +468,14 @@ class DashletForm extends CompatForm
                 'disabled'      => (int) $dashletDisabled
             ]);
         } elseif ($orgDashlet->isOverridingWidget()) { // Custom dashelts that overwrites system dashlets
-            $newPaneId = DashboardHome::getSHA1($username . $homeName . $orgPane->getName());
+            if ($orgPane->getName() !== $paneName) {
+                Notification::error(sprintf(
+                    t('Dashlet "%s" can\'t be moved, as it overwrites a system dashlet'),
+                    $orgDashlet->getName()
+                ));
+
+                return;
+            }
 
             $db->update(Dashlet::OVERRIDING_TABLE, [
                 'label'     => $dashletLabel,
@@ -473,7 +483,7 @@ class DashletForm extends CompatForm
                 'disabled'  => (int) $dashletDisabled
             ], [
                 'dashlet_id = ?'    => $orgDashlet->getDashletId(),
-                'dashboard_id = ?'  => $newPaneId
+                'dashboard_id = ?'  => $paneId
             ]);
         } else { // Custom
             if ($createNewHome || ($homeName !== DashboardHome::DEFAULT_HOME &&
@@ -549,11 +559,14 @@ class DashletForm extends CompatForm
                 $dashlet = Url::fromRequest()->getParam('dashlet');
                 $pane = $activeHome->getPane(Url::fromRequest()->getParam('pane'));
 
-                $dashletId = DashboardHome::getSHA1(
-                    $activeHome->getUser()->getUsername() . $activeHome->getName() . $pane->getName() . $dashlet
-                );
+                if (! $pane->getDashlet($dashlet)->isUserWidget()) {
+                    $dashletId = DashboardHome::getSHA1(
+                        $activeHome->getUser()->getUsername() . $activeHome->getName() . $pane->getName() . $dashlet
+                    );
 
-                $pane->getDashlet($dashlet)->setDashletId($dashletId);
+                    $pane->getDashlet($dashlet)->setDashletId($dashletId);
+                }
+
                 $pane->removeDashlet($dashlet);
 
                 Notification::success(t('Dashlet has been removed from.') . ' ' . $pane->getTitle());
