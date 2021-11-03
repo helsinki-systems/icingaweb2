@@ -890,11 +890,42 @@ class Module
     public function getRequiredModules()
     {
         $requiredModules = $this->metadata()->modules ?: $this->metadata()->depends;
+        if (array_key_exists('monitoring', $requiredModules) && $this->isSupportingIcingadb()) {
+            $requiredMods = [];
+            foreach ($requiredModules as $name => $version) {
+                $requiredMods[$name] = $version;
+                if ($name === 'monitoring') {
+                    $requiredMods['icingadb'] = true;
+                }
+            }
+
+            $requiredModules = $requiredMods;
+        }
 
         // Both modules are deprecated and their successors are now dependencies of web itself
         unset($requiredModules['ipl'], $requiredModules['reactbundle']);
 
         return $requiredModules;
+    }
+
+    /**
+     * Check whether module supports icingadb
+     *
+     * @return bool
+     */
+    protected function isSupportingIcingadb()
+    {
+        $icingadbSupportingModules = [
+            'cube'              => '1.2.0',
+            'jira'              => '1.2.0',
+            'graphite'          => '1.2.0',
+            'director'          => '1.9.0',
+            'toplevelview'      => 'v0.4.0',
+            'businessprocess'   => '2.4.0'
+        ];
+
+        return array_key_exists($this->getName(), $icingadbSupportingModules)
+            && version_compare($this->getVersion(), $icingadbSupportingModules[$this->getName()], '>=');
     }
 
     /**

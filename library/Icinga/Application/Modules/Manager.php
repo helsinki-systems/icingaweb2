@@ -559,6 +559,15 @@ class Manager
         $module = $this->getModule($name, false);
 
         $requiredMods = $module->getRequiredModules();
+
+        if (array_key_exists('icingadb', $requiredMods)) {
+            if (! $this->has('monitoring', $requiredMods['monitoring']) && ! $this->has('icingadb')) {
+                return true;
+            }
+
+            unset($requiredMods['monitoring'], $requiredMods['icingadb']);
+        }
+
         foreach ($requiredMods as $moduleName => $moduleVersion) {
             if (! $this->has($moduleName, $moduleVersion)) {
                 return true;
